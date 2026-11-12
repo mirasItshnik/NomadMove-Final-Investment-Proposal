@@ -1,123 +1,199 @@
-Educational project for the course Introduction to Finance. Not a real product, service or investment offer. Do not use with real funds.
+# NomadMove — Final Investment Proposal Prototype
 
-# NomadMove local blockchain prototype
+> **Educational project for the Introduction to Finance course.** This repository contains an academic prototype and supporting technical evidence. It is not a commercial service, financial product, investment offer, or payment system. No real funds, tokens, personal addresses, or production credentials should be used.
 
-Рабочий учебный прототип: пассажир создаёт поездку, разрешённый водитель принимает, начинает и завершает её. Solidity-контракт проверяет права, статусы и рассчитывает комиссию 5%. Интерфейс на русском и английском показывает подтверждённые транзакции, блоки, журнал событий, проверку хеша маршрута и настоящую карту OpenStreetMap.
+## Project Information
 
-## Обновление 1.1 — языки и карта
+| Item | Details |
+|---|---|
+| Project | NomadMove: A Decentralized Mobility and Driver-Empowerment Ecosystem |
+| Course | Introduction to Finance |
+| Team | Team 2, SE-2533 |
+| Project type | Final Investment Proposal with a working academic prototype |
+| Prototype version | 1.1.0 |
+| Demonstration network | Local Hardhat EVM, chain ID 31337 |
 
-Переключатель RU / EN расположен в правом верхнем углу. Он переводит все пять экранов, уведомления, подсказки и сообщения об ошибках. Предпочтение сохраняется в браузере, если localStorage доступен. Смена языка не стирает введённую стоимость, названия и выбранные точки.
+## Project Overview
 
-В кабинете пассажира появилась карта улиц Алматы: выберите «Отправление A» или «Назначение B» и нажмите на карту. Маркеры можно перетаскивать; координаты автоматически попадут в форму. «Пример по Алматы» восстанавливает учебные точки, «Показать точки» подбирает масштаб. Названия можно вводить отдельно, но это не геокодирование: ручное изменение названия убирает соответствующий маркер, чтобы карта не показывала старые координаты для нового места. У водителя отображаются точки текущей или последней поездки.
+NomadMove is our proposed mobility platform for Kazakhstan. The business concept addresses two linked problems: high platform commissions that reduce drivers' net income and limited transparency in mobility-related transactions. Our investment proposal evaluates a platform commission of **5%**, partnerships with leasing companies, and a transparent audit layer for selected ride and payment records.
 
-Пунктир — прямая между двумя точками, не маршрут по дорогам. Автомобильная маршрутизация, адресный поиск, GPS-слежение и расчёт тарифа по расстоянию не подключены. Стоимость задаётся в форме; предварительная комиссия обновляется при её изменении.
+This repository provides technical evidence for the proposal. The prototype demonstrates a complete ride lifecycle, role-based smart-contract rules, transparent commission accounting, event records, and route-integrity verification. It does not claim to be a production taxi platform or a deployed public blockchain service.
 
-Тайлы OpenStreetMap загружаются через интернет, без API-ключа. При недоступной карте можно создать поездку по названиям. Надписи улиц являются частью изображений OpenStreetMap и не переводятся переключателем интерфейса. Leaflet 1.9.4 хранится локально вместе с лицензией BSD-2-Clause в public/vendor/leaflet/LICENSE.
+## What the Prototype Demonstrates
 
-Координаты сохраняются только в памяти локального сервера и входят в хешируемую запись с солью; в контракте остаётся только хеш. Не выбирайте личные домашние адреса для учебного проекта. Поставщику карты браузер отправляет запросы тайлов видимой области; данные поездки и транзакции через него не передаются.
+- Passenger creation of a ride request with fictional route data and an illustrative fare.
+- Administrator authorization and revocation of driver addresses.
+- Driver actions through the required lifecycle: `Requested → Accepted → InProgress → Completed`.
+- Passenger cancellation while a ride remains in the `Requested` state.
+- Exact 5% platform commission calculated in integer KZT.
+- Driver net earnings and platform totals recorded once at ride completion.
+- Local EVM transaction receipts, block numbers, transaction hashes, and contract events.
+- A salted route commitment stored on-chain while readable route details remain off-chain in memory.
+- Verification of an unchanged route record and detection of a modified copy.
+- Emergency pause and unpause controls available only to the administrator.
+- Responsive English and Russian interfaces with an illustrative OpenStreetMap layer.
 
-Карта использует стандартный браузерный кэш, видимую атрибуцию и Referer по политике поставщика: https://operations.osmfoundation.org/policies/tiles/. Предзагрузка и скачивание областей для офлайн-использования не выполняются. Документация Leaflet: https://leafletjs.com/.
+### Illustrative Commission Example
 
-## Быстрый запуск
+For an illustrative fare of **1,800 KZT**:
 
-Нужен Node.js 22 или 24. Откройте терминал в этой папке.
+| Calculation | Amount |
+|---|---:|
+| Gross fare | 1,800 KZT |
+| NomadMove commission (5%) | 90 KZT |
+| Driver net amount before other expenses | 1,710 KZT |
 
-Установка через pnpm с сохранёнными точными зависимостями:
+These figures are accounting examples inside an academic simulation. The contract does not transfer Ether, tokens, or real money.
 
-```sh
+## Implemented Architecture
+
+```mermaid
+flowchart LR
+    UI[Browser interface] -->|Local HTTP| API[Node.js server on 127.0.0.1]
+    API -->|ethers| EVM[In-process Hardhat EVM]
+    EVM --> SC[NomadMove Solidity contract]
+    API --> RAM[Off-chain fictional routes and salts in memory]
+    SC --> LOGS[Receipts and event logs]
+    LOGS --> API
+```
+
+The browser communicates only with the local Node.js server. The server compiles and deploys the Solidity contract to an ephemeral Hardhat network and performs predefined actions with separate demonstration accounts. No MetaMask connection, external RPC endpoint, public deployment, production database, or real payment provider is used.
+
+### On-chain and Off-chain Data
+
+**On-chain:** synthetic addresses, ride ID, salted route commitment, fare, ride status, commission, driver net amount, aggregate totals, and emitted events.
+
+**Off-chain:** fictional route names, selected map coordinates, and the random salt. These values exist only in local process memory and are reset when the server stops.
+
+The investment proposal discusses a possible permissioned Hyperledger Fabric architecture for cooperation among mobility and leasing organizations. The implemented prototype instead uses Solidity and a local EVM to test the business rules. We explicitly distinguish the proposed production architecture from the technology used in this academic demonstration.
+
+## Technology Stack
+
+| Component | Version / Purpose |
+|---|---|
+| Node.js | 22 or 24; local server and scripts |
+| Solidity | 0.8.28; `NomadMove` smart contract |
+| Hardhat | 2.26.3; ephemeral local EVM |
+| ethers | 6.15.0; contract deployment and interaction |
+| solc-js | 0.8.28; local contract compilation |
+| Leaflet | 1.9.4; local map interface library |
+| OpenStreetMap | Visible map tiles for the illustrative route interface |
+
+Direct dependency versions are fixed in `package.json`, and the reproducible dependency graph is stored in `pnpm-lock.yaml`.
+
+## Installation and Local Launch
+
+### Requirements
+
+- Node.js 22 or 24
+- pnpm recommended; npm may be used as a fallback
+- Internet access during the first dependency installation and for visible OpenStreetMap tiles
+
+### Recommended installation
+
+```bash
 pnpm install --frozen-lockfile --ignore-scripts
 node server.cjs
 ```
 
-Если установлен только npm:
+### npm fallback
 
-```sh
+```bash
 npm install --ignore-scripts
 npm start
 ```
 
-Второй вариант использует фиксированные прямые версии из package.json, но не pnpm-lock.yaml. Для точного воспроизведения проверенного набора используйте pnpm.
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173) after the server prints the local contract address and deployment transaction. Keep the server terminal open while using the prototype. Press `Ctrl+C` to stop it.
 
-Откройте http://127.0.0.1:4173. Сервер сам компилирует и развёртывает контракт в локальной Hardhat EVM с chain ID 31337. В терминале появятся адрес контракта и хеш развёртывания. Частные ключи не печатаются. После установки локальный блокчейн работает без интернета, кошелька и API-ключей. Для изображений карты требуется интернет.
+Windows users may also run `START.cmd` after dependencies have been installed. Opening `public/index.html` directly will not work because the interface requires the local API and blockchain process.
 
-На этом компьютере зависимости уже установлены: достаточно двойного щелчка по `START.cmd`. В ZIP зависимости не включены; после распаковки сначала установите их.
+## Demonstration Scenario
 
-В отличие от старого статического демо, этот прототип **нужно запускать через сервер**. Открытие public/index.html двойным щелчком не подключит блокчейн.
+1. Open **Passenger**, keep the fictional route and the 1,800 KZT illustrative fare, and create a ride.
+2. Open **Driver**, then accept, start, and complete the ride.
+3. Confirm the 90 KZT platform commission and 1,710 KZT driver net amount.
+4. Open **Blockchain & Audit** and verify the original route record.
+5. Test the modified-copy control and confirm that the integrity mismatch is detected.
+6. Open **Administration** to review totals and demonstrate the emergency pause control.
 
-Остановка: Ctrl+C в окне сервера. Повторный запуск создаёт чистую сеть и новый контракт; маршруты и цепочка хранятся только в памяти. Обновление страницы данные не удаляет. Для другого локального порта задайте PORT перед запуском.
+The full three-minute presentation flow is documented in [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md).
 
-## Проверки
+## Testing and Verification
 
-```sh
-npm run compile
-npm test
+Run the contract checks with:
+
+```bash
+pnpm run compile
+pnpm test
 ```
 
-Без npm, при уже установленных зависимостях:
+or directly:
 
-```sh
+```bash
 node scripts/compile.cjs
 node --test --test-concurrency=1 test/ride.test.cjs
 ```
 
-Тесты поднимают собственную локальную Hardhat EVM и не затрагивают запущенный сайт. Файл содержит последовательный набор из 13 проверок одного сценария контракта; его следует запускать целиком. Отчёт о проведённых проверках: `TESTING.md`.
+The test suite contains **13 sequential checks** covering the successful ride lifecycle, the 5% commission, rounding, access control, invalid state transitions, replay prevention, cancellation, pause behavior, driver revocation, active-ride restrictions, and rejection of Ether transfers. The current verified result is **13 passed, 0 failed**. Details are recorded in [`TESTING.md`](TESTING.md).
 
-## Сценарий демонстрации
+## Repository Structure
 
-1. Пассажир: оставить вымышленные точки и стоимость 1 800 ₸, нажать «Записать поездку в блокчейн».
-2. Водитель: «Принять поездку» → «Начать поездку» → «Завершить поездку».
-3. Увидеть начисления: 90 ₸ платформе, 1 710 ₸ водителю. Это бухгалтерские учебные числа, не реальные деньги и не токены.
-4. Блокчейн и аудит: проверить маршрут, затем проверить изменённую копию. Первая проверка проходит, вторая выявляет несовпадение.
-5. Управление: сверить суммы, включить и выключить аварийную паузу.
+```text
+contracts/NomadMove.sol       Smart-contract roles, ride states, commission and pause logic
+scripts/compile.cjs           Local Solidity compilation
+scripts/chain.cjs             Local deployment and demonstration accounts
+server.cjs                    Local API and static-file server
+public/                       Responsive RU/EN browser interface and local Leaflet files
+test/ride.test.cjs            Thirteen contract behavior checks
+docs/ARCHITECTURE.md          Architecture, sequence, roles and data boundary
+docs/CONSENSUS.md             Sourced consensus and architecture comparison
+docs/SECURITY.md              Threats, controls and remaining risks
+docs/DEMO-SCRIPT.md           Short defense-video scenario
+screenshots/                  Desktop and mobile evidence from the running prototype
+```
 
-Статусы: Requested → Accepted → InProgress → Completed. Только пассажир может отменить свою Requested-заявку; Cancelled — конечное состояние. После принятия отмена и споры в этой версии не реализованы. Рейтинг и лизинг остаются в отдельном предыдущем демо и не выдаются за операции этого контракта.
+## Security, Privacy, and Limitations
 
-Комиссия вычисляется целочисленно: `fare * 500 / 10000`, округляется вниз до целого KZT. Остаток получает водитель. Например, 1 801 ₸ = 90 ₸ комиссии + 1 711 ₸ водителю. Начисление выполняется один раз, при завершении. У каждого пассажира и водителя может быть только одна активная поездка.
+- Use only fictional routes and demonstration data.
+- The role tabs are a demonstration interface, not user authentication.
+- Test accounts are created by Hardhat and have no value outside the local network.
+- The server binds to `127.0.0.1`; it is not designed for public hosting.
+- Route verification proves commitment integrity, not that a physical trip occurred.
+- The prototype has no production identity system, persistent database, real payment settlement, GPS tracking, fare-by-distance engine, dispute workflow, or external security audit.
+- A server restart creates a fresh network, a new contract, and empty in-memory records.
+- Automated tests provide evidence for the tested rules but do not prove complete security.
 
-## Что работает в блокчейне
+See [`docs/SECURITY.md`](docs/SECURITY.md) for the threat-control table and [`docs/CONSENSUS.md`](docs/CONSENSUS.md) for the sourced technology comparison.
 
-- Solidity 0.8.28, локальная компиляция через solc-js.
-- Настоящее выполнение байткода EVM в Hardhat Network, реальные локальные transaction receipts и event logs.
-- Администратор, пассажир и водитель используют разные тестовые аккаунты, созданные Hardhat.
-- Маршруты находятся в памяти локального сервера; в контракт передаётся Keccak-256 от записи со случайной солью. В блокчейне также находятся тестовые адреса, статусы и учебные суммы.
-- Ether и токены не переводятся; контракт не принимает Ether. Тестовый ETH сети нужен только для газа, используется автоматически и ничего не стоит.
+## Team Contributions
 
-## Границы прототипа
+| Team member | Project responsibility | Main contribution area |
+|---|---|---|
+| **Miras Kaldybek** | Project Leader and Business Analyst | Project coordination, problem definition, startup concept, business model, target market, report integration, and submission control |
+| **Maksat Muratov** | Chief Financial Officer | Funding requirement, revenue and cost model, valuation assumptions, investor proposal, financial tables, and financial appendices |
+| **Yeskendir Salimov** | Chief Technology Officer | Prototype implementation and verification, smart-contract and system architecture, technical risks, interim findings, and technical appendices |
 
-Сеть запускается **внутри процесса сервера** через Hardhat provider. Отдельный RPC-порт и `hardhat node` не требуются. Браузер обращается только к локальному серверу, который выполняет заранее определённые действия тестовыми аккаунтами. Нет ввода частных ключей, подключения MetaMask или выбора внешней сети.
+All team members are expected to understand the business assumptions, financial logic, prototype workflow, limitations, and conclusions presented during the defense.
 
-Переключение вкладок — учебный переключатель ролей, не авторизация. Любой человек с доступом к этому локальному интерфейсу может выполнить действия всех демонстрационных ролей. Контракт всё равно проверяет адрес отправителя. Это не сервер для публичного размещения.
+## Submission Artifacts
 
-Предыдущая концепция упоминала Hyperledger Fabric. Здесь для выполнения учебного сценария использована Solidity/EVM. Этот контракт нельзя объявлять готовым Fabric chaincode; переход к Fabric требует отдельной реализации и тестов. Архитектурное различие следует явно описать в Final report.
+- **GitHub repository:** [NomadMove Final Investment Proposal](https://github.com/mirasItshnik/NomadMove-Final-Investment-Proposal)
+- **Final report:** submitted separately through the university course platform
+- **Presentation:** submitted separately through the university course platform
+- **Prototype demonstration video:** the official university OneDrive viewing link must be added here after upload; no placeholder or fabricated link is used
 
-## Структура
+## Open-source Attribution
 
-- contracts/NomadMove.sol — роли, поездки, события, комиссия, пауза.
-- scripts/compile.cjs — компиляция без скачивания компилятора при запуске.
-- scripts/chain.cjs — развёртывание в локальной сети.
-- server.cjs — локальное API и статический сайт, только 127.0.0.1.
-- public/ — интерфейс HTML/CSS/JavaScript, переводы i18n.js, карта map.js и локальные файлы Leaflet.
-- test/ride.test.cjs — 13 проверок контракта.
-- docs/ARCHITECTURE.md — архитектура, последовательность, роли и ограничения.
-- docs/CONSENSUS.md — сравнение предлагаемого Fabric Raft с Ethereum PoS, источники и объяснение отличий от текущего Hardhat-прототипа.
-- docs/SECURITY.md — угрозы и меры защиты.
-- docs/DEMO-SCRIPT.md — сценарий записи видео до 3 минут.
-- screenshots/ — настоящие снимки работающего прототипа.
+This project uses Hardhat 2.26.3 (MIT), ethers 6.15.0 (MIT), solc-js 0.8.28 (MIT), and Leaflet 1.9.4 (BSD-2-Clause). The Leaflet license is included at [`public/vendor/leaflet/LICENSE`](public/vendor/leaflet/LICENSE). Map tiles and visible attribution are provided by OpenStreetMap under its published tile-use policy.
 
-## Что остаётся для сдачи Final
+Official technical references:
 
-Удалённый GitHub-репозиторий и университетское видео ещё не созданы. Перед сдачей добавьте в этот раздел их настоящие ссылки, а также ссылки на титульные страницы по требованиям преподавателя. Не подставляйте фиктивные ссылки.
+- [Hardhat Network documentation](https://v2.hardhat.org/hardhat-network/docs/overview)
+- [ethers v6 documentation](https://docs.ethers.org/v6/)
+- [Solidity security considerations](https://docs.soliditylang.org/en/latest/security-considerations.html)
+- [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
+- [Leaflet documentation](https://leafletjs.com/)
 
-Каждый участник должен делать собственные коммиты, проверить расчёты и понимать код. Репозиторий подготовлен к загрузке: node_modules, .env, кэши и артефакты компиляции исключены через .gitignore. Ключи аккаунтов используются внутри Hardhat и не извлекаются в файлы проекта.
+## AI Disclosure Statement
 
-## Использование ИИ и открытого кода
-
-Codex на базе GPT-6 помог создать Solidity-контракт, тесты, локальный сервер, интерфейс и документацию в этом чате. Перед итоговой сдачей уточните точное обозначение модели по настройкам использованной сессии и перечислите все дополнительные инструменты. Команда должна самостоятельно проверить и объяснить дизайн и результаты; не заявляйте, что код написан без ИИ.
-
-Используются Hardhat 2.26.3 (MIT), ethers 6.15.0 (MIT) и solc-js 0.8.28 (MIT); транзитивные зависимости сохраняют свои лицензии. Код OpenZeppelin не копировался. Официальные источники:
-
-- https://v2.hardhat.org/hardhat-network/docs/overview
-- https://docs.ethers.org/v6/
-- https://docs.soliditylang.org/en/latest/security-considerations.html
-
-Это техническая документация для прототипа, а не полный список академических источников Final report.
+The team used ChatGPT/Codex as a supporting tool during the project for brainstorming, report and repository organization, English-language improvement, documentation review, code-drafting and debugging assistance, and test-planning support. The team defined the project requirements and assumptions, reviewed and adapted the assisted material, executed the prototype, verified the 13 automated checks, checked the financial interpretation, and remains responsible for all submitted content, code, calculations, conclusions, and defense answers. AI assistance did not replace the team's academic responsibility or final decision-making. Any additional AI tools used by individual members must be added to this disclosure before submission.
