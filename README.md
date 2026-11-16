@@ -17,7 +17,7 @@
 
 NomadMove is our proposed mobility platform for Kazakhstan. The business concept addresses two linked problems: high platform commissions that reduce drivers' net income and limited transparency in mobility-related transactions. Our investment proposal evaluates a platform commission of **5%**, partnerships with leasing companies, and a transparent audit layer for selected ride and payment records.
 
-This repository provides technical evidence for the proposal. The prototype demonstrates a complete ride lifecycle, role-based smart-contract rules, transparent commission accounting, event records, and route-integrity verification. It does not claim to be a production taxi platform or a deployed public blockchain service.
+This repository provides technical evidence for the proposal. The prototype demonstrates a complete ride lifecycle, transparent commission accounting and a separate tested lease-payment registry. The registry records externally confirmed fiat-payment references, advances due dates, prevents duplicate references and supports overdue and emergency-pause controls without holding money. It does not claim to be a production taxi platform or a deployed public blockchain service.
 
 ## What the Prototype Demonstrates
 
@@ -29,8 +29,11 @@ This repository provides technical evidence for the proposal. The prototype demo
 - Driver net earnings and platform totals recorded once at ride completion.
 - Local EVM transaction receipts, block numbers, transaction hashes, and contract events.
 - A salted route commitment stored on-chain while readable route details remain off-chain in memory.
-- Verification of an unchanged route record and detection of a modified copy.
 - Emergency pause and unpause controls available only to the administrator.
+- Authorized creation of a fictional lease schedule with a hashed vehicle reference.
+- Recording of a unique synthetic reference after an external KZT lease payment is confirmed.
+- Automatic advancement of the next due date and time-gated overdue status.
+- Rejection of duplicate references, wrong amounts, unauthorized lessors and incoming Ether.
 - Responsive English and Russian interfaces with an illustrative OpenStreetMap layer.
 
 ### Illustrative Commission Example
@@ -51,7 +54,8 @@ These figures are accounting examples inside an academic simulation. The contrac
 flowchart LR
     UI[Browser interface] -->|Local HTTP| API[Node.js server on 127.0.0.1]
     API -->|ethers| EVM[In-process Hardhat EVM]
-    EVM --> SC[NomadMove Solidity contract]
+    EVM --> SC[NomadMove ride contract]
+    EVM --> LEASE[LeasePaymentRegistry contract]
     API --> RAM[Off-chain fictional routes and salts in memory]
     SC --> LOGS[Receipts and event logs]
     LOGS --> API
@@ -72,7 +76,7 @@ The investment proposal discusses a possible permissioned Hyperledger Fabric arc
 | Component | Version / Purpose |
 |---|---|
 | Node.js | 22 or 24; local server and scripts |
-| Solidity | 0.8.28; `NomadMove` smart contract |
+| Solidity | 0.8.28; `NomadMove` and `LeasePaymentRegistry` contracts |
 | Hardhat | 2.26.3; ephemeral local EVM |
 | ethers | 6.15.0; contract deployment and interaction |
 | solc-js | 0.8.28; local contract compilation |
@@ -112,9 +116,9 @@ Windows users may also run `START.cmd` after dependencies have been installed. O
 1. Open **Passenger**, keep the fictional route and the 1,800 KZT illustrative fare, and create a ride.
 2. Open **Driver**, then accept, start, and complete the ride.
 3. Confirm the 90 KZT platform commission and 1,710 KZT driver net amount.
-4. Open **Blockchain & Audit** and verify the original route record.
-5. Test the modified-copy control and confirm that the integrity mismatch is detected.
-6. Open **Administration** to review totals and demonstrate the emergency pause control.
+4. Open **Leasing**, confirm the synthetic 45,000 KZT installment, and show that the paid counter and next due date advance.
+5. Open **Blockchain & Audit** and show the `LeasePaymentConfirmed` event, transaction hash, block number, and plain-language control flow.
+6. Open **Administration** to review ride totals and demonstrate the emergency pause control.
 
 The full three-minute presentation flow is documented in [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md).
 
@@ -134,17 +138,19 @@ node scripts/compile.cjs
 node --test --test-concurrency=1 test/ride.test.cjs
 ```
 
-The test suite contains **13 sequential checks** covering the successful ride lifecycle, the 5% commission, rounding, access control, invalid state transitions, replay prevention, cancellation, pause behavior, driver revocation, active-ride restrictions, and rejection of Ether transfers. The current verified result is **13 passed, 0 failed**. Details are recorded in [`TESTING.md`](TESTING.md).
+The test suite contains **21 sequential checks**: 13 for the ride lifecycle and commission logic plus 8 for lease creation, payment confirmation, duplicate-reference prevention, overdue timing, emergency pause, closing and rejection of Ether. The current verified result is **21 passed, 0 failed**. Details are recorded in [`TESTING.md`](TESTING.md).
 
 ## Repository Structure
 
 ```text
 contracts/NomadMove.sol       Smart-contract roles, ride states, commission and pause logic
+contracts/LeasePaymentRegistry.sol  Fiat lease-payment reference, due-date and overdue logic
 scripts/compile.cjs           Local Solidity compilation
 scripts/chain.cjs             Local deployment and demonstration accounts
 server.cjs                    Local API and static-file server
 public/                       Responsive RU/EN browser interface and local Leaflet files
 test/ride.test.cjs            Thirteen contract behavior checks
+test/lease.test.cjs           Eight lease-payment behavior checks
 docs/ARCHITECTURE.md          Architecture, sequence, roles and data boundary
 docs/CONSENSUS.md             Sourced consensus and architecture comparison
 docs/SECURITY.md              Threats, controls and remaining risks
@@ -158,7 +164,7 @@ screenshots/                  Desktop and mobile evidence from the running proto
 - The role tabs are a demonstration interface, not user authentication.
 - Test accounts are created by Hardhat and have no value outside the local network.
 - The server binds to `127.0.0.1`; it is not designed for public hosting.
-- Route verification proves commitment integrity, not that a physical trip occurred.
+- The salted route commitment reduces on-chain data exposure but does not prove that a physical trip occurred.
 - The prototype has no production identity system, persistent database, real payment settlement, GPS tracking, fare-by-distance engine, dispute workflow, or external security audit.
 - A server restart creates a fresh network, a new contract, and empty in-memory records.
 - Automated tests provide evidence for the tested rules but do not prove complete security.
@@ -180,7 +186,7 @@ All team members are expected to understand the business assumptions, financial 
 - **GitHub repository:** [NomadMove Final Investment Proposal](https://github.com/mirasItshnik/NomadMove-Final-Investment-Proposal)
 - **Final report:** submitted separately through the university course platform
 - **Presentation:** submitted separately through the university course platform
-- **Prototype demonstration video:** the official university OneDrive viewing link must be added here after upload; no placeholder or fabricated link is used
+- **Prototype demonstration video:** [View on AITU OneDrive](https://astanait-my.sharepoint.com/personal/253939_astanait_edu_kz/_layouts/15/stream.aspx?id=%2Fpersonal%2F253939_astanait_edu_kz%2FDocuments%2Fdemo%20video%20NM%2Emp4&share=cQqTmjn5aZJqQKeMSN2n3gqhEgUCgKthLSBo0xttWPioREyGSA&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D&CID=2c119118-0418-4c41-a1c9-6770bb4bc144&referrer=StreamWebApp%2EWeb&referrerScenario=AddressBarCopied%2Eview%2Ec3933725-342e-4edb-84e0-1bfc977f912d)
 
 ## Open-source Attribution
 

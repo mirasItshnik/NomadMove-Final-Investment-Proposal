@@ -11,3 +11,5 @@
 .route-pin span{transform:none;border-radius:50%}.route-pin:after{content:'';display:block;margin:-3px auto 0;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #087f71}.route-pin.destination:after{border-top-color:#17363d}
 
 .booking-layout{align-items:start}.account-note{border-top:1px solid #e2e9e6;padding-top:18px;margin-top:20px}
+
+.tag.Active{background:#e4f5ed;color:#278060}.tag.Closed{background:#fcebe8;color:#b16658}.lease-top .value{font-size:22px;font-weight:650;margin-top:5px}

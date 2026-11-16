@@ -3,16 +3,29 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {deploy,ethers}=require('./scripts/chain.cjs');
+const {deployLease}=require('./scripts/chain_lease.cjs');
 const PORT=Number(process.env.PORT||4173);
 if(!Number.isInteger(PORT)||PORT<1024||PORT>65535)throw new Error('Invalid local port');
 const origin=`http://127.0.0.1:${PORT}`;
 const token=crypto.randomBytes(32).toString('hex');
 const routes=new Map();
-let chain,queue=Promise.resolve();
+let chain,leaseChain,queue=Promise.resolve();
 const status=['None','Requested','Accepted','In Progress','Completed','Cancelled'];
+const leaseStatus=['None','Active','Closed'];
 const json=(res,code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data,(_,v)=>typeof v==='bigint'?v.toString():v));};
 const shortError=e=>e.reason||e.shortMessage||e.message||'Transaction failed';
 async function receiptOf(p){const tx=await p;const r=await tx.wait();return {transactionHash:r.hash,blockNumber:r.blockNumber,gasUsed:r.gasUsed,status:r.status};}
+async function leaseSnapshot(){
+ const c=leaseChain.contract,leases=[];
+ for(let id=1;id<=Number(await c.leaseCount());id++){
+  const l=await c.leases(id);
+  leases.push({id,lessor:l.lessor,driver:l.driver,vehicleHash:l.vehicleHash,vehicle:'Hyundai Accent',agreement:'LS-2081',installmentKzt:l.installmentKzt,intervalDays:l.intervalDays,nextDue:l.nextDue,paidCount:l.paidCount,overdue:l.overdue,status:leaseStatus[Number(l.status)]});
+ }
+ const address=await c.getAddress();
+ const logs=await leaseChain.provider.getLogs({address,fromBlock:leaseChain.receipt.blockNumber,toBlock:'latest'});
+ const events=await Promise.all(logs.map(async l=>{const e=c.interface.parseLog(l);const block=await leaseChain.provider.getBlock(l.blockNumber);return {event:e.name,leaseId:e.args.leaseId?.toString()||null,paymentReference:e.args.paymentReference||null,amountKzt:e.args.amountKzt?.toString()||null,paidCount:e.args.paidCount?.toString()||null,nextDue:e.args.nextDue?.toString()||null,transactionHash:l.transactionHash,block:l.blockNumber,timestamp:block.timestamp};}));
+ return {contract:address,deployment:leaseChain.receipt.hash,paused:await c.paused(),accounts:{lessor:leaseChain.lessor.address,driver:leaseChain.driver.address},leases,events:events.reverse(),confirmedPayments:leases.reduce((sum,l)=>sum+Number(l.paidCount),0),unitTests:8};
+}
 async function snapshot(){
  const c=chain.contract;const rides=[];
  for(let id=1;id<=Number(await c.rideCount());id++){
@@ -22,9 +35,18 @@ async function snapshot(){
  const address=await c.getAddress();
  const logs=await chain.provider.getLogs({address,fromBlock:chain.receipt.blockNumber,toBlock:'latest'});
  const events=await Promise.all(logs.map(async l=>{const e=c.interface.parseLog(l);const block=await chain.provider.getBlock(l.blockNumber);return {event:e.name,rideId:e.args.rideId?.toString()||null,transactionHash:l.transactionHash,blockHash:l.blockHash,block:l.blockNumber,index:l.index,timestamp:block.timestamp};}));
- return {contract:address,chainId:31337,deployment:chain.receipt.hash,session:token,paused:await c.paused(),accounts:{admin:chain.admin.address,passenger:chain.passenger.address,driver:chain.driver.address},rides,events:events.reverse(),gross:await c.totalGross(),commission:await c.totalCommission(),net:await c.netEarnings(chain.driver.address),completed:await c.completedCount()};
+ return {contract:address,chainId:31337,deployment:chain.receipt.hash,session:token,paused:await c.paused(),accounts:{admin:chain.admin.address,passenger:chain.passenger.address,driver:chain.driver.address},rides,events:events.reverse(),gross:await c.totalGross(),commission:await c.totalCommission(),net:await c.netEarnings(chain.driver.address),completed:await c.completedCount(),lease:await leaseSnapshot()};
 }
 async function action(b){
+ if(b.action==='confirmLeasePayment'){
+  const id=Number(b.id),reference=typeof b.reference==='string'?b.reference.trim():'';
+  if(!Number.isSafeInteger(id)||id<1)throw new Error('Invalid lease ID');
+  if(reference.length<3||reference.length>64)throw new Error('Payment reference must contain 3–64 characters');
+  const lease=await leaseChain.contract.leases(id),amount=Number(b.amount);
+  if(!Number.isSafeInteger(amount)||amount!==Number(lease.installmentKzt))throw new Error('Incorrect amount');
+  const referenceHash=ethers.keccak256(ethers.toUtf8Bytes(reference));
+  return receiptOf(leaseChain.contract.connect(leaseChain.lessor).confirmPayment(id,referenceHash,amount));
+ }
  const c=chain.contract;
  if(b.action==='create'){
   const pickup=typeof b.pickup==='string'?b.pickup.trim():'',destination=typeof b.destination==='string'?b.destination.trim():'';
@@ -58,13 +80,6 @@ async function handle(req,res){
    const parsed=JSON.parse(body);const task=queue.then(()=>action(parsed));queue=task.catch(()=>{});
    return json(res,200,{receipt:await task});
   }
-  if(url.pathname==='/api/verify'&&req.method==='GET'){
-   const id=Number(url.searchParams.get('id'));if(!Number.isSafeInteger(id)||id<1)throw new Error('Invalid ride ID');
-   const local=routes.get(id);if(!local)throw new Error('Off-chain route not available for this ride');
-   const r=await chain.contract.rides(id);const tampered=url.searchParams.get('tampered')==='1';
-   const expected=ethers.keccak256(ethers.toUtf8Bytes(local.canonical+(tampered?'modified-copy':'')));
-   return json(res,200,{ok:expected===r.routeHash,stored:r.routeHash,calculated:expected,tampered});
-  }
   if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
   const files={'/':'index.html','/index.html':'index.html','/styles.css':'styles.css','/app.js':'app.js','/i18n.js':'i18n.js','/map.js':'map.js','/vendor/leaflet/leaflet.js':'vendor/leaflet/leaflet.js','/vendor/leaflet/leaflet.css':'vendor/leaflet/leaflet.css','/vendor/leaflet/images/layers.png':'vendor/leaflet/images/layers.png','/vendor/leaflet/images/layers-2x.png':'vendor/leaflet/images/layers-2x.png'};
   const file=files[url.pathname];if(!file)return json(res,404,{error:'Not found'});
@@ -74,10 +89,14 @@ async function handle(req,res){
 }
 (async()=>{
  chain=await deploy();
+ leaseChain=await deployLease();
+ const latest=await leaseChain.provider.getBlock('latest');
+ const vehicleHash=ethers.keccak256(ethers.toUtf8Bytes('LS-2081|Hyundai Accent|D-001'));
+ await (await leaseChain.contract.connect(leaseChain.lessor).createLease(leaseChain.driver.address,vehicleHash,45000,Number(latest.timestamp)+14*24*60*60,14)).wait();
  const server=http.createServer((req,res)=>handle(req,res).catch(()=>json(res,500,{error:'Local server error'})));
  server.listen(PORT,'127.0.0.1',()=>{
   console.log('NomadMove deployed on local Hardhat EVM (chain 31337).');
-  console.log('Contract:',chain.contract.target);console.log('Deployment transaction:',chain.receipt.hash);
+  console.log('Ride contract:',chain.contract.target);console.log('Lease contract:',leaseChain.contract.target);console.log('Deployment transaction:',chain.receipt.hash);
   console.log('Local URL:',origin);console.log('No private keys are printed. Ctrl+C stops this ephemeral network.');
  });
  server.on('error',e=>{console.error('Could not start:',e.message);process.exit(1);});

@@ -5,8 +5,9 @@
   "description": "Educational local EVM ride lifecycle prototype; no real funds",
   "scripts": {
     "start": "node server.cjs",
-    "compile": "node scripts/compile.cjs",
-    "test": "node --test --test-concurrency=1 test/ride.test.cjs"
+    "compile": "node scripts/compile.cjs && node scripts/compile_lease.cjs",
+    "test": "node --test --test-concurrency=1 test/ride.test.cjs test/lease.test.cjs",
+    "test:lease": "node --test --test-concurrency=1 test/lease.test.cjs"
   },
   "engines": {
     "node": ">=22 <25"
